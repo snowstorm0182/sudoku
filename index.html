@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sudoku</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF3F1; --surface:#FFFFFF; --ink:#1D2A33; --pen:#2457A6; --line:#1D2A33;
+  --thin:#B9C6C3; --sel:#C9DCF4; --peer:#E2EAE7; --same:#DCE7F6;
+  --err:#B3261E; --errbg:#F7DEDC; --btn:#FFFFFF; --btnline:#B9C6C3; --muted:#5A6B73;
+  --on:#2457A6; --onink:#FFFFFF;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121A1F; --surface:#1B252B; --ink:#E6EEF0; --pen:#8DB6F2; --line:#C9D6DA;
+    --thin:#3A4A52; --sel:#2A4566; --peer:#222F36; --same:#26394F;
+    --err:#FF8A80; --errbg:#4A2422; --btn:#1F2A30; --btnline:#3A4A52; --muted:#9AAAB1;
+    --on:#8DB6F2; --onink:#121A1F;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121A1F; --surface:#1B252B; --ink:#E6EEF0; --pen:#8DB6F2; --line:#C9D6DA;
+  --thin:#3A4A52; --sel:#2A4566; --peer:#222F36; --same:#26394F;
+  --err:#FF8A80; --errbg:#4A2422; --btn:#1F2A30; --btnline:#3A4A52; --muted:#9AAAB1;
+  --on:#8DB6F2; --onink:#121A1F;
+  color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none; user-select:none;
+}
+main{max-width:520px; margin:0 auto; padding:14px 12px 20px}
+header{display:flex; align-items:baseline; justify-content:space-between; margin:4px 2px 12px}
+h1{font-size:1.7rem; margin:0; font-weight:700; letter-spacing:.01em}
+#level{font-size:1.1rem; color:var(--muted)}
+
+#board{
+  display:grid; grid-template-columns:repeat(9,1fr);
+  aspect-ratio:1; width:100%;
+  background:var(--surface);
+  border:3px solid var(--line); border-radius:6px; overflow:hidden;
+}
+.cell{
+  position:relative; display:flex; align-items:center; justify-content:center;
+  border-right:1px solid var(--thin); border-bottom:1px solid var(--thin);
+  font-size:clamp(1.5rem, 7.4vw, 2.3rem); line-height:1;
+  cursor:pointer; background:var(--surface);
+}
+.cell.c9{border-right:none} .cell.r9{border-bottom:none}
+.cell.bx{border-right:2.5px solid var(--line)}
+.cell.by{border-bottom:2.5px solid var(--line)}
+.cell.given{font-weight:700; color:var(--ink)}
+.cell.user{color:var(--pen)}
+.cell.peer{background:var(--peer)}
+.cell.same{background:var(--same)}
+.cell.sel{background:var(--sel)}
+.cell.wrong{color:var(--err); background:var(--errbg)}
+.cell.sel.wrong{background:var(--errbg); box-shadow:inset 0 0 0 3px var(--sel)}
+.notes{
+  position:absolute; inset:2px; display:grid; grid-template-columns:repeat(3,1fr);
+  font-size:clamp(.55rem, 2.6vw, .8rem); color:var(--muted); font-weight:400;
+}
+.notes span{display:flex; align-items:center; justify-content:center}
+
+#pad{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:16px}
+#pad button{font-size:1.9rem; font-weight:700; height:64px}
+#pad button.done{opacity:.35}
+#pad .erase{font-size:1.05rem; font-weight:400}
+
+#tools{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px}
+#tools button{font-size:1.05rem; height:56px}
+
+button{
+  font-family:inherit; color:var(--ink); background:var(--btn);
+  border:1.5px solid var(--btnline); border-radius:12px; cursor:pointer;
+  touch-action:manipulation;
+}
+button:active{transform:scale(.97)}
+button:focus-visible,.cell:focus-visible{outline:3px solid var(--on); outline-offset:2px}
+button[aria-pressed="true"]{background:var(--on); color:var(--onink); border-color:var(--on)}
+
+dialog{
+  border:none; border-radius:16px; padding:22px 20px; width:min(92vw,400px);
+  background:var(--surface); color:var(--ink);
+}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog h2{margin:0 0 6px; font-size:1.5rem}
+dialog p{margin:0 0 16px; font-size:1.1rem; color:var(--muted); line-height:1.5}
+.choices{display:grid; gap:10px}
+.choices button{height:58px; font-size:1.2rem}
+.choices .cancel{border:none; background:transparent; color:var(--muted); height:48px}
+@media (prefers-reduced-motion: reduce){button:active{transform:none}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Sudoku</h1>
+    <span id="level"></span>
+  </header>
+
+  <div id="board" role="grid" aria-label="Sudoku-ruudukko"></div>
+
+  <div id="pad">
+    <button data-n="1">1</button><button data-n="2">2</button><button data-n="3">3</button>
+    <button data-n="4">4</button><button data-n="5">5</button><button data-n="6">6</button>
+    <button data-n="7">7</button><button data-n="8">8</button><button data-n="9">9</button>
+    <button class="erase" data-n="0">Pyyhi</button>
+  </div>
+
+  <div id="tools">
+    <button id="notesBtn" aria-pressed="false">Muistiin&shy;panot</button>
+    <button id="undoBtn">Kumoa</button>
+    <button id="newBtn">Uusi peli</button>
+  </div>
+</main>
+
+<dialog id="newDlg">
+  <h2 id="dlgTitle">Uusi peli</h2>
+  <p id="dlgText">Valitse vaikeustaso.</p>
+  <div class="choices">
+    <button data-level="helppo">Helppo</button>
+    <button data-level="keskitaso">Keskitaso</button>
+    <button data-level="vaikea">Vaikea</button>
+    <button class="cancel" id="cancelBtn">Jatka nykyistä peliä</button>
+  </div>
+</dialog>
+
+<script>
+(function(){
+  const LEVELS = { helppo:{name:"Helppo", givens:40}, keskitaso:{name:"Keskitaso", givens:32}, vaikea:{name:"Vaikea", givens:26} };
+  const KEY = "sudoku-peli-v1";
+  const rowOf = i => Math.floor(i/9), colOf = i => i%9;
+  const boxOf = i => Math.floor(rowOf(i)/3)*3 + Math.floor(colOf(i)/3);
+
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+  function bits(m){ let n=0; while(m){ m&=m-1; n++; } return n; }
+
+  // Counts solutions up to `limit`. With randomize, leaves the first found solution in g.
+  function solve(g, limit, randomize){
+    const r=new Array(9).fill(0), c=new Array(9).fill(0), b=new Array(9).fill(0);
+    for(let i=0;i<81;i++) if(g[i]){ const m=1<<g[i]; r[rowOf(i)]|=m; c[colOf(i)]|=m; b[boxOf(i)]|=m; }
+    let count=0;
+    function rec(){
+      let best=-1, bestMask=0, bestN=10;
+      for(let i=0;i<81;i++){
+        if(g[i]) continue;
+        const avail = ~(r[rowOf(i)]|c[colOf(i)]|b[boxOf(i)]) & 0x3FE;
+        const n = bits(avail);
+        if(n<bestN){ best=i; bestMask=avail; bestN=n; if(n===0) return false; }
+      }
+      if(best===-1){ count++; return count>=limit; }
+      const ds=[]; for(let d=1;d<=9;d++) if(bestMask&(1<<d)) ds.push(d);
+      if(randomize) shuffle(ds);
+      const ri=rowOf(best), ci=colOf(best), bi=boxOf(best);
+      for(const d of ds){
+        const m=1<<d;
+        g[best]=d; r[ri]|=m; c[ci]|=m; b[bi]|=m;
+        if(rec()) return true;
+        g[best]=0; r[ri]&=~m; c[ci]&=~m; b[bi]&=~m;
+      }
+      return false;
+    }
+    rec();
+    return count;
+  }
+
+  function generate(target){
+    const full=new Array(81).fill(0);
+    solve(full,1,true);
+    const puzzle=full.slice();
+    let givens=81;
+    for(const i of shuffle([...Array(81).keys()])){
+      if(givens<=target) break;
+      const keep=puzzle[i]; puzzle[i]=0;
+      if(solve(puzzle.slice(),2,false)!==1) puzzle[i]=keep; else givens--;
+    }
+    return {puzzle, solution:full};
+  }
+
+  let S = null; // {level, puzzle, solution, values, notes, history}
+  let sel = -1, notesMode = false;
+
+  const boardEl=document.getElementById("board");
+  const cells=[];
+  for(let i=0;i<81;i++){
+    const d=document.createElement("div");
+    d.className="cell";
+    d.setAttribute("role","gridcell");
+    const r=rowOf(i), c=colOf(i);
+    if(c===8) d.classList.add("c9"); else if(c%3===2) d.classList.add("bx");
+    if(r===8) d.classList.add("r9"); else if(r%3===2) d.classList.add("by");
+    d.addEventListener("click",()=>{ sel=i; render(); });
+    boardEl.appendChild(d); cells.push(d);
+  }
+
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+  function load(){
+    try{ const raw=localStorage.getItem(KEY); if(!raw) return null; const s=JSON.parse(raw); return (s && s.puzzle && s.puzzle.length===81) ? s : null; }
+    catch(e){ return null; }
+  }
+
+  function newGame(level){
+    const g=generate(LEVELS[level].givens);
+    S={level, puzzle:g.puzzle, solution:g.solution, values:g.puzzle.slice(), notes:new Array(81).fill(0), history:[], solved:false};
+    sel=-1; save(); render();
+  }
+
+  function isSolved(){ for(let i=0;i<81;i++) if(S.values[i]!==S.solution[i]) return false; return true; }
+
+  function input(n){
+    if(sel<0 || S.puzzle[sel] || S.solved) return;
+    const prev={i:sel, v:S.values[sel], n:S.notes[sel]};
+    if(n===0){
+      if(!S.values[sel] && !S.notes[sel]) return;
+      S.values[sel]=0; S.notes[sel]=0;
+    } else if(notesMode){
+      if(S.values[sel]) return;
+      S.notes[sel]^=(1<<n);
+    } else {
+      S.values[sel] = S.values[sel]===n ? 0 : n;
+      S.notes[sel]=0;
+      if(S.values[sel]===S.solution[sel]){
+        // tidy matching pencil marks from peers
+        const peers=[];
+        for(let j=0;j<81;j++) if(j!==sel && (rowOf(j)===rowOf(sel)||colOf(j)===colOf(sel)||boxOf(j)===boxOf(sel)) && (S.notes[j]&(1<<n))) peers.push({i:j,n:S.notes[j]});
+        prev.peers=peers;
+        for(const p of peers) S.notes[p.i]&=~(1<<n);
+      }
+    }
+    S.history.push(prev);
+    if(S.history.length>300) S.history.shift();
+    if(isSolved()){ S.solved=true; }
+    save(); render();
+    if(S.solved) setTimeout(showWin,250);
+  }
+
+  function undo(){
+    const h=S.history.pop(); if(!h) return;
+    S.values[h.i]=h.v; S.notes[h.i]=h.n;
+    if(h.peers) for(const p of h.peers) S.notes[p.i]=p.n;
+    S.solved=false; sel=h.i; save(); render();
+  }
+
+  function render(){
+    document.getElementById("level").textContent=LEVELS[S.level].name;
+    const sv = sel>=0 ? S.values[sel] : 0;
+    const counts=new Array(10).fill(0);
+    for(let i=0;i<81;i++){
+      const d=cells[i], v=S.values[i];
+      if(v && v===S.solution[i]) counts[v]++;
+      d.className=d.className.replace(/\s?(given|user|peer|same|sel|wrong)\b/g,"");
+      if(S.puzzle[i]) d.classList.add("given"); else if(v) d.classList.add("user");
+      if(sel>=0 && i!==sel && (rowOf(i)===rowOf(sel)||colOf(i)===colOf(sel)||boxOf(i)===boxOf(sel))) d.classList.add("peer");
+      if(sv && v===sv && i!==sel) d.classList.add("same");
+      if(i===sel) d.classList.add("sel");
+      if(v && !S.puzzle[i] && v!==S.solution[i]) d.classList.add("wrong");
+      if(v){ d.textContent=v; d.setAttribute("aria-label",`Rivi ${rowOf(i)+1}, sarake ${colOf(i)+1}: ${v}`); }
+      else if(S.notes[i]){
+        let h='<div class="notes">';
+        for(let n=1;n<=9;n++) h+=`<span>${(S.notes[i]&(1<<n))?n:""}</span>`;
+        d.innerHTML=h+"</div>";
+        d.setAttribute("aria-label",`Rivi ${rowOf(i)+1}, sarake ${colOf(i)+1}: tyhjä`);
+      } else { d.textContent=""; d.setAttribute("aria-label",`Rivi ${rowOf(i)+1}, sarake ${colOf(i)+1}: tyhjä`); }
+    }
+    document.querySelectorAll("#pad button").forEach(b=>{
+      const n=+b.dataset.n; if(n) b.classList.toggle("done", counts[n]>=9);
+    });
+  }
+
+  // Dialog
+  const dlg=document.getElementById("newDlg");
+  function openDialog(title,text,canCancel){
+    document.getElementById("dlgTitle").textContent=title;
+    document.getElementById("dlgText").textContent=text;
+    document.getElementById("cancelBtn").style.display=canCancel?"":"none";
+    if(typeof dlg.showModal==="function") dlg.showModal(); else dlg.setAttribute("open","");
+  }
+  function closeDialog(){ if(dlg.close) dlg.close(); else dlg.removeAttribute("open"); }
+  function showWin(){ openDialog("Valmis!","Hienosti ratkaistu. Valitse seuraavan pelin vaikeustaso.",false); }
+
+  dlg.querySelectorAll("[data-level]").forEach(b=>b.addEventListener("click",()=>{ closeDialog(); setTimeout(()=>newGame(b.dataset.level),30); }));
+  document.getElementById("cancelBtn").addEventListener("click",closeDialog);
+  dlg.addEventListener("cancel",e=>{ if(S && S.solved) e.preventDefault(); });
+
+  document.querySelectorAll("#pad button").forEach(b=>b.addEventListener("click",()=>input(+b.dataset.n)));
+  const notesBtn=document.getElementById("notesBtn");
+  notesBtn.addEventListener("click",()=>{ notesMode=!notesMode; notesBtn.setAttribute("aria-pressed",String(notesMode)); });
+  document.getElementById("undoBtn").addEventListener("click",undo);
+  document.getElementById("newBtn").addEventListener("click",()=>{
+    const started = S && !S.solved && S.history.length>0;
+    openDialog("Uusi peli", started ? "Nykyinen peli jää kesken. Valitse vaikeustaso." : "Valitse vaikeustaso.", true);
+  });
+
+  document.addEventListener("keydown",e=>{
+    if(dlg.open) return;
+    if(e.key>="1"&&e.key<="9"){ input(+e.key); e.preventDefault(); }
+    else if(e.key==="Backspace"||e.key==="Delete"||e.key==="0"){ input(0); e.preventDefault(); }
+    else if(e.key.startsWith("Arrow")){
+      if(sel<0) sel=40;
+      else {
+        const r=rowOf(sel), c=colOf(sel);
+        if(e.key==="ArrowUp") sel=((r+8)%9)*9+c;
+        if(e.key==="ArrowDown") sel=((r+1)%9)*9+c;
+        if(e.key==="ArrowLeft") sel=r*9+(c+8)%9;
+        if(e.key==="ArrowRight") sel=r*9+(c+1)%9;
+      }
+      render(); e.preventDefault();
+    }
+    else if(e.key==="n"||e.key==="N"){ notesBtn.click(); }
+    else if((e.ctrlKey||e.metaKey)&&e.key==="z"){ undo(); e.preventDefault(); }
+  });
+
+  S=load();
+  if(S){ render(); if(S.solved) showWin(); }
+  else newGame("helppo");
+})();
+</script>
+</body>
+</html>
